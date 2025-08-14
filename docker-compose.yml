@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # Servizio Web (PHP + Apache)
+  web:
+    build: . # Costruisce l'immagine usando il Dockerfile nella directory corrente
+    container_name: cena-web-server
+    ports:
+      - "8080:80" # Mappa la porta 8080 del tuo PC alla 80 del container
+    volumes:
+      - ./src:/var/www/html/src
+      - ./public:/var/www/html/public
+    depends_on:
+      - db # Il servizio web dipende dal database
+
+  # Servizio Database (MySQL)
+  db:
+    image: mysql:8.0 # Ho utilizzato un'immagine ufficiale di MySQL
+    container_name: cena-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password # Da cambiare
+      MYSQL_DATABASE: cena_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306" # Esposta la porta di MySQL
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  db_data: # Definisce il volume

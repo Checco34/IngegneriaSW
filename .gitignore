@@ -1,0 +1,2 @@
+#Escludo il file .env
+.env
