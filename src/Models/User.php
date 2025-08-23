@@ -1,44 +1,33 @@
 <?php
-namespace Models;
-
+namespace App\Models;
+use App\Core\Database;
+use PDO;
 class User {
-    private $pdo;
-
-    public function __construct($pdo) {
-        $this->pdo = $pdo;
+    private $conn;
+    private $table = 'utenti';
+    public function __construct() {
+        $this->conn = Database::getInstance()->getConnection();
     }
-
-    /**
-     * Crea un nuovo utente nel database.
-     * Usa prepared statements per la sicurezza. [cite: 108]
-     */
-    public function create($nome, $email, $password_hash, $tipo) {
-        $stmt = $this->pdo->prepare(
-            'INSERT INTO utenti (nome, email, password, tipo) VALUES (:nome, :email, :password, :tipo)'
-        );
-        return $stmt->execute([
-            ':nome' => $nome,
-            ':email' => $email,
-            ':password' => $password_hash,
-            ':tipo' => $tipo // 'oste' o 'commensale'
-        ]);
-    }
-
-    /**
-     * Trova un utente tramite il suo ID. [cite: 103]
-     */
-    public function findById($id) {
-        $stmt = $this->pdo->prepare('SELECT * FROM utenti WHERE id = :id');
-        $stmt->execute([':id' => $id]);
-        return $stmt->fetch();
-    }
-    
-    /**
-     * Trova un utente tramite la sua email.
-     */
     public function findByEmail($email) {
-        $stmt = $this->pdo->prepare('SELECT * FROM utenti WHERE email = :email');
-        $stmt->execute([':email' => $email]);
-        return $stmt->fetch();
+        $query = "SELECT * FROM " . $this->table . " WHERE email = :email LIMIT 1";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':email', $email);
+        $stmt->execute();
+        return $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    public function create($data) {
+        $query = "INSERT INTO " . $this->table . " (nome, cognome, email, password, ruolo) VALUES (:nome, :cognome, :email, :password, :ruolo)";
+        $stmt = $this->conn->prepare($query);
+        $nome = htmlspecialchars(strip_tags($data->nome));
+        $cognome = htmlspecialchars(strip_tags($data->cognome));
+        $email = htmlspecialchars(strip_tags($data->email));
+        $ruolo = htmlspecialchars(strip_tags($data->ruolo));
+        $password_hash = password_hash($data->password, PASSWORD_BCRYPT);
+        $stmt->bindParam(':nome', $nome);
+        $stmt->bindParam(':cognome', $cognome);
+        $stmt->bindParam(':email', $email);
+        $stmt->bindParam(':password', $password_hash);
+        $stmt->bindParam(':ruolo', $ruolo);
+        return $stmt->execute();
     }
 }
