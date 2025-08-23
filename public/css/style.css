@@ -1,0 +1,37 @@
+#dinners-container .card { transition: transform 0.2s; }
+#dinners-container .card:hover { transform: scale(1.03); }
+
+/* Stile per le notifiche personalizzate */
+.toast-notification {
+    position: fixed; /* Rimane fisso sullo schermo */
+    bottom: 20px;
+    right: 20px;
+    padding: 15px 20px;
+    border-radius: 8px;
+    color: white;
+    font-size: 16px;
+    z-index: 9999; /* Si assicura che stia sopra a tutto */
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    
+    /* Animazione */
+    transform: translateY(100px);
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.5s cubic-bezier(0.215, 0.610, 0.355, 1); /* Transizione fluida */
+}
+
+/* Stile per quando la notifica è visibile */
+.toast-notification.show {
+    transform: translateY(0);
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Colori per i diversi tipi di notifica */
+.toast-notification.success {
+    background-color: green; /* Verde */
+}
+
+.toast-notification.error {
+    background-color: red; /* Rosso */
+}
