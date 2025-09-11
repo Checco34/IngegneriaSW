@@ -1,4 +1,4 @@
-$(document).ready(function() {
+$(document).ready(function () {
     const API_BASE_URL = '/api';
     let currentUser = null; // Memorizza i dati dell'utente loggato
 
@@ -15,20 +15,25 @@ $(document).ready(function() {
                     const payload = JSON.parse(atob(token.split('.')[1]));
                     currentUser = payload.data;
                 } catch (e) {
-                    handleLogout(); return; // Se il token non è valido, esegui il logout
+                    handleLogout();
+                    return; // Se il token non è valido, esegui il logout
                 }
 
+                // Se c'è un token, mostra i link per gli utenti autenticati e nascondi quelli per i non autenticati
                 $('#login-link, #register-link').hide();
-                $('#logout-link').show();
-                
+                $('#logout-link, #home-link').show();
+
                 // Mostra "Crea Cena" solo se l'utente è un OSTE
                 if (currentUser && currentUser.ruolo === 'OSTE') {
                     $('#create-dinner-link').show();
+                } else {
+                    $('#create-dinner-link').hide();
                 }
             } else {
+                // Se non c'è un token, mostra i link per i non autenticati e nascondi quelli per gli autenticati
                 currentUser = null;
                 $('#login-link, #register-link').show();
-                $('#logout-link, #create-dinner-link').hide();
+                $('#logout-link, #create-dinner-link, #home-link').hide();
             }
         }
     };
@@ -37,15 +42,9 @@ $(document).ready(function() {
     function showToast(message, type = 'success') {
         const toast = $('#notification-toast');
         const messageP = $('#notification-message');
-
-        // Imposta il messaggio e il tipo di notifica (success o error)
-        messageP.text(message);
         toast.removeClass('success error').addClass(type);
-
-        // Mostra la notifica aggiungendo la classe 'show'
+        messageP.text(message);
         toast.addClass('show');
-
-        // Nasconde la notifica dopo 4 secondi
         setTimeout(() => {
             toast.removeClass('show');
         }, 4000);
@@ -54,7 +53,7 @@ $(document).ready(function() {
     //Funzione per il caricamento e la visualizzazione delle cene
     function loadDinners() {
         $.ajax({
-            url: `${API_BASE_URL}/dinners`,
+            url: `${API_BASE_URL}/cene`,
             method: 'GET',
             success: (dinners) => {
                 const container = $('#dinners-container');
@@ -64,56 +63,141 @@ $(document).ready(function() {
                     return;
                 }
                 dinners.forEach(dinner => {
+                    // Modifica la dinner card per aggiungere il bottone di iscrizione condizionale
                     const dinnerCard = `
                         <div class="col-md-4 mb-4">
-                            <div class="card h-100">
+                            <div class="card h-100 dinner-card" data-id="${dinner.id}">
                                 <div class="card-body">
                                     <h5 class="card-title">${dinner.titolo}</h5>
                                     <h6 class="card-subtitle mb-2 text-muted">${new Date(dinner.dataOra).toLocaleString('it-IT')}</h6>
                                     <p class="card-text">${dinner.descrizione.substring(0, 100)}...</p>
                                     <p><small><strong>Località:</strong> ${dinner.localita}</small></p>
                                     <p><small><strong>Posti rimasti:</strong> ${dinner.numPostiDisponibili}</small></p>
+                                    ${currentUser && currentUser.ruolo === 'COMMENSALE' && dinner.numPostiDisponibili > 0
+                                        ? `<button class="btn btn-primary btn-sm mt-2 participate-btn" data-id="${dinner.id}">Iscriviti</button>`
+                                        : ''}
                                 </div>
                             </div>
                         </div>`;
                     container.append(dinnerCard);
                 });
             },
-            error: () => { $('#dinners-container').html('<p class="text-danger">Impossibile caricare le cene.</p>');}
+            error: () => {
+                $('#dinners-container').html('<p class="text-danger">Impossibile caricare le cene.</p>');
+            }
+        });
+    }
+    
+    // NUOVA FUNZIONE per caricare e visualizzare i dettagli di una singola cena
+    function fetchDinnerDetails(dinnerId) {
+        $.ajax({
+            url: `${API_BASE_URL}/cene/${dinnerId}`,
+            method: 'GET',
+            success: (dinner) => {
+                renderDinnerDetails(dinner);
+                router.showView('dinner-detail-view');
+            },
+            error: (err) => {
+                showToast('Errore nel caricamento dei dettagli della cena.', 'error');
+                router.showView('dinner-list-view');
+            }
+        });
+    }
+
+    // NUOVA FUNZIONE per renderizzare i dettagli della cena
+    function renderDinnerDetails(dinner) {
+        const container = $('#dinner-details-container');
+        container.empty();
+        const detailsHtml = `
+            <div class="card p-4">
+                <h2>${dinner.titolo}</h2>
+                <p><strong>Descrizione:</strong> ${dinner.descrizione}</p>
+                <p><strong>Menù:</strong> ${dinner.menu}</p>
+                <p><strong>Data:</strong> ${new Date(dinner.dataOra).toLocaleString('it-IT')}</p>
+                <p><strong>Località:</strong> ${dinner.localita}</p>
+                <p><strong>Posti disponibili:</strong> ${dinner.numPostiDisponibili}</p>
+                ${currentUser && currentUser.ruolo === 'COMMENSALE' && dinner.numPostiDisponibili > 0
+                    ? `<button class="btn btn-primary mt-3 participate-btn" data-id="${dinner.id}">Invia richiesta di partecipazione</button>`
+                    : ''}
+            </div>`;
+        container.append(detailsHtml);
+    }
+    
+    // NUOVA FUNZIONE per gestire la richiesta di partecipazione
+    function handleParticipationRequest(dinnerId) {
+        const token = localStorage.getItem('jwtToken');
+        if (!token) {
+            showToast('Devi essere loggato per iscriverti ad una cena.', 'error');
+            router.showView('login-view');
+            return;
+        }
+        
+        $.ajax({
+            url: `${API_BASE_URL}/partecipazione/richiedi`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ id_cena: dinnerId }),
+            beforeSend: (xhr) => {
+                xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+            },
+            success: (response) => {
+                showToast(response.message);
+                router.showView('dinner-list-view');
+                loadDinners();
+            },
+            error: (err) => {
+                const message = err.responseJSON?.message || 'Errore nella richiesta di partecipazione.';
+                showToast(message, 'error');
+            }
         });
     }
 
     function handleLogout() {
         localStorage.removeItem('jwtToken');
+        currentUser = null;
         router.updateNav();
-        router.showView('dinner-list-view');
+        router.showView('login-view');
+        showToast('Logout effettuato con successo!');
     }
 
     // AGGIUNTA GESTIONE NUOVI LINK E FORM
-    $('#home-link').on('click', () => router.showView('dinner-list-view'));
+    $('#home-link').on('click', () => {
+        router.showView('dinner-list-view');
+        loadDinners();
+    });
     $('#login-link').on('click', () => router.showView('login-view'));
     $('#register-link').on('click', () => router.showView('register-view'));
     $('#create-dinner-link').on('click', () => router.showView('create-dinner-view'));
     $('#logout-link').on('click', handleLogout);
 
     // Form di Login (AGGIORNATO per ricaricare le cene dopo il login)
-    $('#login-form').on('submit', function(e) {
+    $('#login-form').on('submit', function (e) {
         e.preventDefault();
+        const data = {
+            email: $('#login-email').val(),
+            password: $('#login-password').val()
+        };
         $.ajax({
-            url: `${API_BASE_URL}/login`, method: 'POST', contentType: 'application/json',
-            data: JSON.stringify({ email: $('#login-email').val(), password: $('#login-password').val() }),
+            url: `${API_BASE_URL}/login`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
             success: (response) => {
                 localStorage.setItem('jwtToken', response.token);
                 router.updateNav();
                 router.showView('dinner-list-view');
                 loadDinners(); // Ricarica le cene per mostrare eventuali nuove opzioni
+                showToast('Login avvenuto con successo!');
             },
-            error: (err) => { $('#login-error').text(err.responseJSON?.message || 'Errore.'); }
+            error: (err) => {
+                $('#login-error').text(err.responseJSON?.message || 'Credenziali non valide.');
+                showToast('Credenziali non valide.', 'error');
+            }
         });
     });
 
     // La versione finale e pulita del gestore del form di registrazione
-    $('#register-form').on('submit', function(e) {
+    $('#register-form').on('submit', function (e) {
         e.preventDefault();
         const data = {
             nome: $('#register-nome').val(),
@@ -122,7 +206,7 @@ $(document).ready(function() {
             password: $('#register-password').val(),
             ruolo: $('#register-ruolo').val(),
         };
-        
+
         $.ajax({
             url: `${API_BASE_URL}/register`,
             method: 'POST',
@@ -134,37 +218,82 @@ $(document).ready(function() {
             },
             error: (err) => {
                 $('#register-error').text(err.responseJSON?.message || 'Errore di registrazione.');
+                showToast(err.responseJSON?.message || 'Errore di registrazione.', 'error');
             }
         });
     });
-    
+
     // NUOVA GESTIONE FORM CREA CENA
-    $('#create-dinner-form').on('submit', function(e) {
+    $('#create-dinner-form').on('submit', function (e) {
         e.preventDefault();
         const data = {
-            titolo: $('#dinner-titolo').val(), descrizione: $('#dinner-descrizione').val(),
-            dataOra: $('#dinner-data').val(), localita: $('#dinner-localita').val(),
-            numPostiDisponibili: parseInt($('#dinner-posti').val()), menu: $('#dinner-menu').val()
+            titolo: $('#dinner-titolo').val(),
+            descrizione: $('#dinner-descrizione').val(),
+            dataOra: $('#dinner-data').val(),
+            localita: $('#dinner-localita').val(),
+            numPostiDisponibili: parseInt($('#dinner-posti').val()),
+            menu: $('#dinner-menu').val()
         };
+
+        // Frontend validation for numPostiDisponibili
+        if (data.numPostiDisponibili <= 0 || isNaN(data.numPostiDisponibili)) {
+            $('#create-dinner-error').text('Il numero di posti deve essere maggiore di zero.');
+            showToast('Il numero di posti deve essere maggiore di zero.', 'error');
+            return;
+        }
+
+        const token = localStorage.getItem('jwtToken');
+        if (!token) {
+            showToast('Devi essere loggato per creare una cena.', 'error');
+            return;
+        }
+
         $.ajax({
-            url: `${API_BASE_URL}/dinners`, method: 'POST', contentType: 'application/json',
+            url: `${API_BASE_URL}/cene/create`, // Adjusted URL to match backend router
+            method: 'POST',
+            contentType: 'application/json',
             data: JSON.stringify(data),
             beforeSend: (xhr) => {
-                // Allega il token JWT a questa richiesta protetta
-                const token = localStorage.getItem('jwtToken');
-                if (token) { xhr.setRequestHeader('Authorization', 'Bearer ' + token); }
+                xhr.setRequestHeader('Authorization', 'Bearer ' + token);
             },
-            success: () => {
-                alert('Cena creata con successo!');
+            success: (response) => {
+                showToast('Cena creata con successo!');
+                $('#create-dinner-form')[0].reset(); // Reset form
                 router.showView('dinner-list-view');
                 loadDinners(); // Ricarica la lista per mostrare la nuova cena
             },
-            error: (err) => { $('#create-dinner-error').text(err.responseJSON?.message || 'Errore nella creazione della cena.'); }
+            error: (err) => {
+                $('#create-dinner-error').text(err.responseJSON?.message || 'Errore nella creazione della cena.');
+                showToast(err.responseJSON?.message || 'Errore nella creazione della cena.', 'error');
+            }
         });
+    });
+
+    // NUOVI EVENT LISTENER
+    // Aggiungi la vista dei dettagli della cena al DOM se non esiste
+    if ($('#dinner-detail-view').length === 0) {
+        $('main').append('<section id="dinner-detail-view" style="display:none;"><div id="dinner-details-container"></div></section>');
+    }
+
+    // Clic su una card per visualizzare i dettagli
+    $(document).on('click', '.dinner-card', function() {
+        const dinnerId = $(this).data('id');
+        fetchDinnerDetails(dinnerId);
+    });
+
+    // Clic sul bottone "Iscriviti" nella lista o nei dettagli
+    $(document).on('click', '.participate-btn', function() {
+        const dinnerId = $(this).data('id');
+        handleParticipationRequest(dinnerId);
     });
 
     // --- INIZIALIZZAZIONE ---
     router.updateNav();
-    router.showView('dinner-list-view');
-    loadDinners(); // Carica le cene all'avvio dell'applicazione
+    const token = localStorage.getItem('jwtToken');
+    if (!token) {
+        router.showView('login-view');
+    } else {
+        router.showView('dinner-list-view');
+        loadDinners();
+    }
 });

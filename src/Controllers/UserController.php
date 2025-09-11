@@ -1,9 +1,14 @@
 <?php
+
 namespace App\Controllers;
+
 use App\Models\User;
 use Firebase\JWT\JWT;
-class UserController {
-    public function register() {
+
+class UserController
+{
+    public function register()
+    {
         $data = json_decode(file_get_contents("php://input"));
         $userModel = new User();
         if ($userModel->findByEmail($data->email)) {
@@ -19,7 +24,9 @@ class UserController {
             echo json_encode(['message' => 'Errore durante la registrazione dell\'utente.']);
         }
     }
-    public function login() {
+    
+    public function login()
+    {
         $data = json_decode(file_get_contents("php://input"));
         $userModel = new User();
         $user = $userModel->findByEmail($data->email);
@@ -31,7 +38,7 @@ class UserController {
         $secret_key = getenv('JWT_SECRET_KEY');
         $payload = [
             'iat' => time(),
-            'exp' => time() + (60*60), // Scade tra 1 ora
+            'exp' => time() + (60 * 60), // Scade tra 1 ora
             'data' => [
                 'id' => $user['id'],
                 'email' => $user['email'],
@@ -41,5 +48,13 @@ class UserController {
         $jwt = JWT::encode($payload, $secret_key, 'HS256');
         http_response_code(200);
         echo json_encode(['token' => $jwt]);
+    }
+
+    public function logout()
+    {
+        // Nessuna logica di invalidazione del token necessaria sul server.
+        // Il token scadrà da solo.
+        http_response_code(200);
+        echo json_encode(['message' => 'Logout effettuato con successo.']);
     }
 }
