@@ -1,6 +1,10 @@
 {
+    "name": "Francesco/a-cena-con-estranei",
+    "description": "Progetto di Ingegneria del Software.",
+    "type": "project",
     "require": {
-        "firebase/php-jwt": "^6.10"
+        "firebase/php-jwt": "^6.10",
+        "vlucas/phpdotenv": "^5.6"
     },
     "autoload": {
         "psr-4": {
