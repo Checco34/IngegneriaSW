@@ -12,22 +12,16 @@ class Participation {
         $this->conn = Database::getInstance()->getConnection();
     }
 
-    /**
-     * Crea un nuovo record di partecipazione a seguito di una richiesta accettata.
-     */
-    public function create($id_richiesta, $id_cena, $id_commensale) {
+    public function creaDaRichiesta($request) {
         $query = "INSERT INTO " . $this->table . " (id_richiesta, id_cena, id_commensale) VALUES (:id_richiesta, :id_cena, :id_commensale)";
         $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':id_richiesta', $id_richiesta);
-        $stmt->bindParam(':id_cena', $id_cena);
-        $stmt->bindParam(':id_commensale', $id_commensale);
+        $stmt->bindParam(':id_richiesta', $request['id']);
+        $stmt->bindParam(':id_cena', $request['id_cena']);
+        $stmt->bindParam(':id_commensale', $request['id_commensale']);
         return $stmt->execute();
     }
 
-    /**
-     * Trova una partecipazione specifica tramite il suo ID.
-     */
-    public function findById($id_partecipazione) {
+    public function trovaTramiteId($id_partecipazione) {
         $query = "SELECT * FROM " . $this->table . " WHERE id = :id_partecipazione LIMIT 1";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':id_partecipazione', $id_partecipazione);
@@ -35,11 +29,7 @@ class Participation {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * Trova una partecipazione confermata di un utente per una specifica cena.
-     * Utile per verificare se un utente può lasciare una recensione.
-     */
-    public function findByUserAndDinner($id_commensale, $id_cena) {
+    public function trovaTramiteUtenteECena($id_commensale, $id_cena) {
         $query = "SELECT * FROM " . $this->table . " WHERE id_commensale = :id_commensale AND id_cena = :id_cena AND statoPartecipante = 'CONFERMATO' LIMIT 1";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':id_commensale', $id_commensale);
@@ -48,11 +38,8 @@ class Participation {
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
     
-    /**
-     * Annulla una partecipazione impostando il suo stato su ANNULLATO_DA_UTENTE.
-     */
-    public function cancel($id_partecipazione) {
-        $query = "UPDATE " . $this->table . " SET statoPartecipante = 'ANNULLATO_DA_UTENTE' WHERE id = :id_partecipazione";
+    public function annulla($id_partecipazione) {
+        $query = "UPDATE " . $this->table . " SET statoPartecipante = 'ANNULLATO_DA_UTENTE' WHERE id = :id_partecipazione AND statoPartecipante = 'CONFERMATO'";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':id_partecipazione', $id_partecipazione);
         return $stmt->execute();

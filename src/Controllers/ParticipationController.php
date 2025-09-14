@@ -2,22 +2,14 @@
 namespace App\Controllers;
 
 use App\Models\ParticipationRequest;
+use App\Models\Participation;
 use App\Models\Dinner;
 use App\Core\AuthMiddleware;
 
 class ParticipationController {
     
-    // Endpoint per permettere al commensale di iscriversi a una cena
-    public function requestParticipation() {
-        $userData = AuthMiddleware::protect();
-        
-        // Controlla se l'utente è un commensale
-        if ($userData->ruolo !== 'COMMENSALE') {
-            http_response_code(403);
-            echo json_encode(['message' => 'Solo un commensale può iscriversi a una cena.']);
-            return;
-        }
-
+    public function richiediPartecipazione() {
+        $userData = AuthMiddleware::proteggi();
         $data = json_decode(file_get_contents("php://input"));
         $id_cena = $data->id_cena ?? null;
 
@@ -28,80 +20,121 @@ class ParticipationController {
         }
 
         $dinnerModel = new Dinner();
-        $dinner = $dinnerModel->readSingle($id_cena);
+        $dinner = $dinnerModel->trovaTramiteId($id_cena);
 
-        // Controllo per i posti disponibili (Alternative flow del caso d'uso Iscrizione Cena)
-        if (!$dinner || $dinner['numPostiDisponibili'] <= 0) {
-            http_response_code(409); // Conflict
-            echo json_encode(['message' => 'Posti esauriti o cena non disponibile.']);
+        if (!$dinner || $dinner['stato'] !== 'APERTA') {
+            http_response_code(409);
+            echo json_encode(['message' => 'Cena non disponibile o non più aperta.']);
             return;
         }
         
         $requestModel = new ParticipationRequest();
-        if ($requestModel->create($id_cena, $userData->id)) {
-            // Aggiorna il numero di posti disponibili
-            $dinnerModel->updateSpots($id_cena, -1);
+        if ($requestModel->crea($id_cena, $userData->id)) {
             http_response_code(201);
             echo json_encode(['message' => 'Richiesta di partecipazione inviata.']);
         } else {
             http_response_code(500);
-            echo json_encode(['message' => 'Errore nella richiesta di partecipazione.']);
+            echo json_encode(['message' => 'Errore: richiesta già inviata o problema del server.']);
         }
     }
 
-    // Endpoint per l'oste per visualizzare le richieste di partecipazione
-    public function getRequestsByDinner($id_cena) {
-        $userData = AuthMiddleware::protect();
+    public function leggiRichiestePerCena($id_cena) {
+        $userData = AuthMiddleware::proteggi();
         $dinnerModel = new Dinner();
-        $dinner = $dinnerModel->readSingle($id_cena);
+        $dinner = $dinnerModel->trovaTramiteId($id_cena);
 
-        // Controlla che l'utente sia l'oste proprietario della cena
-        if ($userData->ruolo !== 'OSTE' || $dinner['id_oste'] !== $userData->id) {
+        if ($dinner['id_oste'] != $userData->id) {
             http_response_code(403);
             echo json_encode(['message' => 'Accesso non autorizzato.']);
             return;
         }
 
         $requestModel = new ParticipationRequest();
-        $requests = $requestModel->getRequestsByDinner($id_cena);
+        $requests = $requestModel->trovaTramiteCena($id_cena);
         
-        if (empty($requests)) {
-            // Alternative flow del caso d'uso Gestione Iscrizioni
-            http_response_code(200); 
-            echo json_encode(['message' => 'Nessuna richiesta di iscrizione presente per questa cena.', 'data' => []]);
-        } else {
-            http_response_code(200);
-            echo json_encode($requests);
-        }
+        http_response_code(200);
+        echo json_encode($requests);
     }
 
-    // Endpoint per l'oste per accettare o rifiutare una richiesta
-    public function manageRequest() {
-        $userData = AuthMiddleware::protect();
-        
-        if ($userData->ruolo !== 'OSTE') {
-            http_response_code(403);
-            echo json_encode(['message' => 'Azione non consentita.']);
-            return;
-        }
-
+    public function gestisciRichiesta($id_richiesta) {
+        $userData = AuthMiddleware::proteggi();
         $data = json_decode(file_get_contents("php://input"));
-        $id_richiesta = $data->id_richiesta ?? null;
         $stato = $data->stato ?? null;
 
-        if (!$id_richiesta || !in_array($stato, ['ACCETTATA', 'RIFIUTATA'])) {
+        if (!in_array($stato, ['ACCETTATA', 'RIFIUTATA'])) {
             http_response_code(400);
-            echo json_encode(['message' => 'Dati mancanti o stato non valido.']);
+            echo json_encode(['message' => 'Stato non valido.']);
             return;
         }
 
         $requestModel = new ParticipationRequest();
-        if ($requestModel->updateStatus($id_richiesta, $stato)) {
+        $request = $requestModel->trovaTramiteId($id_richiesta);
+        if (!$request) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Richiesta non trovata.']);
+            return;
+        }
+
+        $dinnerModel = new Dinner();
+        $dinner = $dinnerModel->trovaTramiteId($request['id_cena']);
+
+        if ($dinner['id_oste'] != $userData->id) {
+            http_response_code(403);
+            echo json_encode(['message' => 'Azione non consentita. Non sei l\'oste di questa cena.']);
+            return;
+        }
+
+        if ($stato === 'ACCETTATA') {
+            if ($dinner['numPostiDisponibili'] <= 0) {
+                http_response_code(409);
+                echo json_encode(['message' => 'Impossibile accettare: posti esauriti.']);
+                return;
+            }
+            
+            $participationModel = new Participation();
+            if ($participationModel->creaDaRichiesta($request)) {
+                $dinnerModel->aggiornaPosti($dinner['id'], -1);
+            } else {
+                http_response_code(500);
+                echo json_encode(['message' => 'Errore nella creazione della partecipazione.']);
+                return;
+            }
+        }
+        
+        if ($requestModel->aggiornaStato($id_richiesta, $stato)) {
             http_response_code(200);
             echo json_encode(['message' => 'Stato della richiesta aggiornato con successo.']);
         } else {
             http_response_code(500);
             echo json_encode(['message' => 'Errore nell\'aggiornamento dello stato della richiesta.']);
+        }
+    }
+
+    public function annullaPartecipazione($id_partecipazione) {
+        $userData = AuthMiddleware::proteggi();
+        $participationModel = new Participation();
+        $participation = $participationModel->trovaTramiteId($id_partecipazione);
+
+        if (!$participation) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Partecipazione non trovata.']);
+            return;
+        }
+
+        if ($participation['id_commensale'] != $userData->id) {
+            http_response_code(403);
+            echo json_encode(['message' => 'Azione non consentita.']);
+            return;
+        }
+
+        if ($participationModel->annulla($id_partecipazione)) {
+            $dinnerModel = new Dinner();
+            $dinnerModel->aggiornaPosti($participation['id_cena'], 1);
+            http_response_code(200);
+            echo json_encode(['message' => 'Partecipazione annullata con successo.']);
+        } else {
+            http_response_code(500);
+            echo json_encode(['message' => 'Errore durante l\'annullamento.']);
         }
     }
 }
