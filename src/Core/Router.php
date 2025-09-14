@@ -1,62 +1,49 @@
 <?php
-
 namespace App\Core;
-
-use App\Controllers\UserController;
-use App\Controllers\DinnerController;
-use App\Controllers\ParticipationController;
-use App\Controllers\ReviewController;
 
 class Router {
     private $routes = [];
 
-    private function addRoute($method, $path, $handler) {
-        $this->routes[strtoupper($method)][$path] = $handler;
+    private function aggiungiRotta($method, $url, $handler) {
+        $urlRegex = preg_replace('/\{([a-zA-Z0-9_]+)\}/', '(?P<$1>[a-zA-Z0-9_]+)', $url);
+        $this->routes[$method]['#^' . $urlRegex . '$#'] = $handler;
     }
 
-    public function get($path, $handler) {
-        $this->addRoute('GET', $path, $handler);
+    public function get($url, $handler) {
+        $this->aggiungiRotta('GET', $url, $handler);
     }
 
-    public function post($path, $handler) {
-        $this->addRoute('POST', $path, $handler);
+    public function post($url, $handler) {
+        $this->aggiungiRotta('POST', $url, $handler);
     }
 
-    public function dispatch($url) {
+    public function put($url, $handler) {
+        $this->aggiungiRotta('PUT', $url, $handler);
+    }
+
+    public function delete($url, $handler) {
+        $this->aggiungiRotta('DELETE', $url, $handler);
+    }
+
+    public function instrada($url) {
         $method = $_SERVER['REQUEST_METHOD'];
-        $path = '/' . trim($url, '/');
+        $url = parse_url($url, PHP_URL_PATH);
 
-        // Special handling for dynamic URLs like /api/cene/{id}
-        if ($method === 'GET' && strpos($path, '/api/cene/requests/') === 0) {
-            $parts = explode('/', $path);
-            $id_cena = end($parts);
-            $handler = [ParticipationController::class, 'getRequestsByDinner'];
-            // Dispatch with the dynamic parameter
-            $controller = new $handler[0]();
-            $action = $handler[1];
-            $controller->$action($id_cena);
-            return;
+        if (isset($this->routes[$method])) {
+            foreach ($this->routes[$method] as $route => $handler) {
+                if (preg_match($route, $url, $matches)) {
+                    $params = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
+                    
+                    $controller = new $handler[0]();
+                    $action = $handler[1];
+
+                    call_user_func_array([$controller, $action], $params);
+                    return;
+                }
+            }
         }
 
-        // Gestione per i dettagli di una singola cena
-        if ($method === 'GET' && preg_match('/^\/api\/cene\/(\d+)$/', $path, $matches)) {
-            $id_cena = $matches[1];
-            $handler = [DinnerController::class, 'getSingle'];
-            $controller = new $handler[0]();
-            $action = $handler[1];
-            $controller->$action($id_cena);
-            return;
-        }
-
-        $handler = $this->routes[$method][$path] ?? null;
-
-        if ($handler) {
-            $controller = new $handler[0]();
-            $action = $handler[1];
-            $controller->$action();
-        } else {
-            http_response_code(404);
-            echo json_encode(['message' => 'Endpoint non trovato.']);
-        }
+        http_response_code(404);
+        echo json_encode(['message' => 'Endpoint non trovato']);
     }
 }
