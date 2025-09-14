@@ -4,17 +4,16 @@ services:
     build: .
     container_name: cena-web-server
     ports:
-      - "8080:80"
+      - "8000:80"
     volumes:
       - ./src:/var/www/html/src
       - ./public:/var/www/html/public
-      - ./composer.json:/var/www/html/composer.json
     environment:
       - DB_HOST=db
-      - DB_NAME=cena_db
-      - DB_USER=user
-      - DB_PASS=password
-      - JWT_SECRET_KEY=SecretKey
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
     depends_on:
       - db
   db:
@@ -22,13 +21,14 @@ services:
     container_name: cena-db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: cena_db
-      MYSQL_USER: user
-      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASS}
     ports:
       - "3306:3306"
     volumes:
+      - ./schema.sql:/docker-entrypoint-initdb.d/init.sql
       - db_data:/var/lib/mysql
 volumes:
   db_data:

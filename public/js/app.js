@@ -249,7 +249,7 @@ $(document).ready(function () {
         }
 
         $.ajax({
-            url: `${API_BASE_URL}/cene/create`, // Adjusted URL to match backend router
+            url: `${API_BASE_URL}/cene`, // Adjusted URL to match backend router
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify(data),
