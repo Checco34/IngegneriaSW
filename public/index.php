@@ -9,13 +9,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 }
 
 require_once __DIR__ . '/../src/Core/Autoloader.php';
-require_once __DIR__ . '/../vendor/autoload.php';
 
 use App\Core\Router;
 use App\Controllers\UserController;
 use App\Controllers\DinnerController;
 use App\Controllers\ParticipationController;
 use App\Controllers\ReviewController;
+use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
+
 
 $router = new Router();
 

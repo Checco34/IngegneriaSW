@@ -22,13 +22,7 @@ $(document).ready(function () {
                 // Se c'è un token, mostra i link per gli utenti autenticati e nascondi quelli per i non autenticati
                 $('#login-link, #register-link').hide();
                 $('#logout-link, #home-link').show();
-
-                // Mostra "Crea Cena" solo se l'utente è un OSTE
-                if (currentUser && currentUser.ruolo === 'OSTE') {
-                    $('#create-dinner-link').show();
-                } else {
-                    $('#create-dinner-link').hide();
-                }
+                $('#create-dinner-link').show();
             } else {
                 // Se non c'è un token, mostra i link per i non autenticati e nascondi quelli per gli autenticati
                 currentUser = null;
@@ -63,19 +57,26 @@ $(document).ready(function () {
                     return;
                 }
                 dinners.forEach(dinner => {
-                    // Modifica la dinner card per aggiungere il bottone di iscrizione condizionale
+                    // Logica per mostrare il pulsante "Iscriviti"
+                    const isHost = currentUser && currentUser.id == dinner.id_oste;
+                    const canParticipate = currentUser && !isHost && dinner.numPostiDisponibili > 0;
+
                     const dinnerCard = `
                         <div class="col-md-4 mb-4">
-                            <div class="card h-100 dinner-card" data-id="${dinner.id}">
-                                <div class="card-body">
-                                    <h5 class="card-title">${dinner.titolo}</h5>
-                                    <h6 class="card-subtitle mb-2 text-muted">${new Date(dinner.dataOra).toLocaleString('it-IT')}</h6>
-                                    <p class="card-text">${dinner.descrizione.substring(0, 100)}...</p>
-                                    <p><small><strong>Località:</strong> ${dinner.localita}</small></p>
-                                    <p><small><strong>Posti rimasti:</strong> ${dinner.numPostiDisponibili}</small></p>
-                                    ${currentUser && currentUser.ruolo === 'COMMENSALE' && dinner.numPostiDisponibili > 0
-                                        ? `<button class="btn btn-primary btn-sm mt-2 participate-btn" data-id="${dinner.id}">Iscriviti</button>`
-                                        : ''}
+                            <div class="card h-100">
+                                <div class="card-body d-flex flex-column">
+                                    <div class="flex-grow-1 dinner-card" data-id="${dinner.id}">
+                                        <h5 class="card-title">${dinner.titolo}</h5>
+                                        <h6 class="card-subtitle mb-2 text-muted">Organizzata da: ${dinner.nome_oste}</h6>
+                                        <p><small>${new Date(dinner.dataOra).toLocaleString('it-IT')}</small></p>
+                                        <p class="card-text">${dinner.descrizione.substring(0, 100)}...</p>
+                                        <p><small><strong>Località:</strong> ${dinner.localita}</small></p>
+                                        <p><small><strong>Posti rimasti:</strong> ${dinner.numPostiDisponibili}</small></p>
+                                    </div>
+                                    ${canParticipate
+                                        ? `<button class="btn btn-primary btn-sm mt-auto participate-btn" data-id="${dinner.id}">Iscriviti</button>`
+                                        : ''
+                                    }
                                 </div>
                             </div>
                         </div>`;
@@ -108,6 +109,8 @@ $(document).ready(function () {
     function renderDinnerDetails(dinner) {
         const container = $('#dinner-details-container');
         container.empty();
+        const isHost = currentUser && currentUser.id == dinner.id_oste;
+        const canParticipate = currentUser && !isHost && dinner.numPostiDisponibili > 0 && dinner.stato === 'APERTA';
         const detailsHtml = `
             <div class="card p-4">
                 <h2>${dinner.titolo}</h2>
@@ -116,7 +119,7 @@ $(document).ready(function () {
                 <p><strong>Data:</strong> ${new Date(dinner.dataOra).toLocaleString('it-IT')}</p>
                 <p><strong>Località:</strong> ${dinner.localita}</p>
                 <p><strong>Posti disponibili:</strong> ${dinner.numPostiDisponibili}</p>
-                ${currentUser && currentUser.ruolo === 'COMMENSALE' && dinner.numPostiDisponibili > 0
+                ${canParticipate
                     ? `<button class="btn btn-primary mt-3 participate-btn" data-id="${dinner.id}">Invia richiesta di partecipazione</button>`
                     : ''}
             </div>`;
@@ -133,7 +136,7 @@ $(document).ready(function () {
         }
         
         $.ajax({
-            url: `${API_BASE_URL}/partecipazione/richiedi`,
+            url: `${API_BASE_URL}/richieste`,
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify({ id_cena: dinnerId }),
@@ -204,11 +207,10 @@ $(document).ready(function () {
             cognome: $('#register-cognome').val(),
             email: $('#register-email').val(),
             password: $('#register-password').val(),
-            ruolo: $('#register-ruolo').val(),
         };
 
         $.ajax({
-            url: `${API_BASE_URL}/register`,
+            url: `${API_BASE_URL}/registrati`,
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify(data),
