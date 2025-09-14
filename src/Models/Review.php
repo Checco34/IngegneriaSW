@@ -12,10 +12,7 @@ class Review {
         $this->conn = Database::getInstance()->getConnection();
     }
 
-    /**
-     * Crea una nuova recensione nel database.
-     */
-    public function create($data) {
+    public function crea($data) {
         $query = "INSERT INTO " . $this->table . " (id_cena, id_valutatore, id_valutato, voto, commento) 
                   VALUES (:id_cena, :id_valutatore, :id_valutato, :voto, :commento)";
         
@@ -30,10 +27,7 @@ class Review {
         return $stmt->execute();
     }
 
-    /**
-     * Ottiene tutte le recensioni ricevute da un utente specifico.
-     */
-    public function getByUser($id_valutato) {
+    public function trovaTramiteUtente($id_valutato) {
         $query = "SELECT r.*, u.nome as nome_valutatore, u.cognome as cognome_valutatore 
                   FROM " . $this->table . " r
                   JOIN utenti u ON r.id_valutatore = u.id

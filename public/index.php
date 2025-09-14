@@ -9,6 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 }
 
 require_once __DIR__ . '/../src/Core/Autoloader.php';
+require_once __DIR__ . '/../vendor/autoload.php';
 
 use App\Core\Router;
 use App\Controllers\UserController;
@@ -19,23 +20,26 @@ use App\Controllers\ReviewController;
 $router = new Router();
 
 // --- Rotte Utente ---
-$router->post('/api/register', [UserController::class, 'register']);
+$router->post('/api/registrati', [UserController::class, 'registrati']);
 $router->post('/api/login', [UserController::class, 'login']);
 
 // --- Rotte Cene ---
-$router->post('/api/cene', [DinnerController::class, 'create']);
-$router->get('/api/cene', [DinnerController::class, 'getAll']);
-$router->get('/api/cene/{id}', [DinnerController::class, 'getSingle']);
+$router->post('/api/cene', [DinnerController::class, 'crea']); 
+$router->get('/api/cene', [DinnerController::class, 'leggiTutte']);
+$router->get('/api/cene/mie', [DinnerController::class, 'leggiCeneOrganizzate']);
+$router->get('/api/cene/{id}', [DinnerController::class, 'leggiSingola']);
 
-// --- Rotte Partecipazione ---
-$router->post('/api/requests', [ParticipationController::class, 'requestParticipation']);
-$router->get('/api/cene/{id}/requests', [ParticipationController::class, 'getRequestsByDinner']);
-$router->post('/api/requests/manage', [ParticipationController::class, 'manageRequest']);
-$router->post('/api/participations/cancel', [ParticipationController::class, 'cancelParticipation']);
+// --- Rotte Richieste di Partecipazione ---
+$router->post('/api/richieste', [ParticipationController::class, 'richiediPartecipazione']);
+$router->get('/api/cene/{id}/richieste', [ParticipationController::class, 'leggiRichiestePerCena']);
+$router->put('/api/richieste/{id}', [ParticipationController::class, 'gestisciRichiesta']);
+
+// --- Rotte Partecipazioni ---
+$router->put('/api/partecipazioni/{id}/annulla', [ParticipationController::class, 'annullaPartecipazione']);
 
 // --- Rotte Recensioni ---
-$router->post('/api/reviews', [ReviewController::class, 'create']);
-$router->get('/api/users/{id}/reviews', [ReviewController::class, 'getReviewsForUser']);
+$router->post('/api/recensioni', [ReviewController::class, 'crea']);
+$router->get('/api/utenti/{id}/recensioni', [ReviewController::class, 'leggiRecensioniPerUtente']); 
 
 $url = $_SERVER['REQUEST_URI'];
-$router->dispatch($url);
+$router->instrada($url);
