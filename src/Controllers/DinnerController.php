@@ -42,14 +42,25 @@ class DinnerController
 
     public function leggiTutte()
     {
+        $id_utente_corrente = null;
+        $userData = \App\Core\AuthMiddleware::recuperaUtente();
+        if ($userData) {
+            $id_utente_corrente = $userData->id;
+        }
+
         $dinnerModel = new Dinner();
-        $dinners = $dinnerModel->leggiTutteAperte();
+        $dinners = $dinnerModel->leggiTutteAperte($id_utente_corrente);
         echo json_encode($dinners);
     }
 
     public function leggiSingola($id) {
+        $id_utente_corrente = null;
+        $userData = \App\Core\AuthMiddleware::recuperaUtente();
+        if ($userData) {
+            $id_utente_corrente = $userData->id;
+        }
         $dinnerModel = new Dinner();
-        $dinner = $dinnerModel->trovaTramiteId($id);
+        $dinner = $dinnerModel->trovaTramiteId($id, $id_utente_corrente);
         if ($dinner) {
             http_response_code(200);
             echo json_encode($dinner);
@@ -66,5 +77,33 @@ class DinnerController
         $dinners = $dinnerModel->trovaTramiteOste($userData->id);
         http_response_code(200);
         echo json_encode($dinners);
+    }
+
+    public function annulla($id)
+    {
+        $userData = AuthMiddleware::proteggi();
+        $dinnerModel = new Dinner();
+        $dinner = $dinnerModel->trovaTramiteId($id);
+
+        if (!$dinner) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Cena non trovata.']);
+            return;
+        }
+
+        if ($dinner['id_oste'] != $userData->id) {
+            http_response_code(403);
+            echo json_encode(['message' => 'Azione non autorizzata.']);
+            return;
+        }
+
+        if ($dinnerModel->annulla($id)) {
+            //TODO: logica notifica
+            http_response_code(200);
+            echo json_encode(['message' => 'Cena annullata con successo.']);
+        } else {
+            http_response_code(500);
+            echo json_encode(['message' => 'Impossibile annullare la cena o cena già conclusa/annullata.']);
+        }
     }
 }

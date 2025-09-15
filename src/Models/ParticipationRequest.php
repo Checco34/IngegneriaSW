@@ -19,7 +19,7 @@ class ParticipationRequest {
         $stmt->bindParam(':id_commensale', $id_commensale);
         try {
             return $stmt->execute();
-        } catch (PDOException $e) {
+        } catch (\PDOException $e) {
             return false;
         }
     }

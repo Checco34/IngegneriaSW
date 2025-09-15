@@ -21,13 +21,12 @@ $(document).ready(function () {
 
                 // Se c'è un token, mostra i link per gli utenti autenticati e nascondi quelli per i non autenticati
                 $('#login-link, #register-link').hide();
-                $('#logout-link, #home-link').show();
-                $('#create-dinner-link').show();
+                $('#logout-link, #home-link, #create-dinner-link, #my-dinners-link, #my-participations-link').show();
             } else {
                 // Se non c'è un token, mostra i link per i non autenticati e nascondi quelli per gli autenticati
                 currentUser = null;
                 $('#login-link, #register-link').show();
-                $('#logout-link, #create-dinner-link, #home-link').hide();
+                $('#logout-link, #create-dinner-link, #home-link, #my-dinners-link, #my-participations-link').hide();
             }
         }
     };
@@ -49,6 +48,12 @@ $(document).ready(function () {
         $.ajax({
             url: `${API_BASE_URL}/cene`,
             method: 'GET',
+            beforeSend: (xhr) => { // <-- AGGIUNGI QUESTO BLOCCO
+                const token = localStorage.getItem('jwtToken');
+                if (token) {
+                    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+                }
+            },
             success: (dinners) => {
                 const container = $('#dinners-container');
                 container.empty();
@@ -59,7 +64,7 @@ $(document).ready(function () {
                 dinners.forEach(dinner => {
                     // Logica per mostrare il pulsante "Iscriviti"
                     const isHost = currentUser && currentUser.id == dinner.id_oste;
-                    const canParticipate = currentUser && !isHost && dinner.numPostiDisponibili > 0;
+                    const canParticipate = currentUser && !isHost && dinner.numPostiDisponibili > 0 && dinner.stato === 'APERTA' && !dinner.stato_richiesta_utente;
 
                     const dinnerCard = `
                         <div class="col-md-4 mb-4">
@@ -74,9 +79,9 @@ $(document).ready(function () {
                                         <p><small><strong>Posti rimasti:</strong> ${dinner.numPostiDisponibili}</small></p>
                                     </div>
                                     ${canParticipate
-                                        ? `<button class="btn btn-primary btn-sm mt-auto participate-btn" data-id="${dinner.id}">Iscriviti</button>`
-                                        : ''
-                                    }
+                            ? `<button class="btn btn-primary btn-sm mt-auto participate-btn" data-id="${dinner.id}">Iscriviti</button>`
+                            : ''
+                        }
                                 </div>
                             </div>
                         </div>`;
@@ -88,12 +93,18 @@ $(document).ready(function () {
             }
         });
     }
-    
+
     // NUOVA FUNZIONE per caricare e visualizzare i dettagli di una singola cena
     function fetchDinnerDetails(dinnerId) {
         $.ajax({
             url: `${API_BASE_URL}/cene/${dinnerId}`,
             method: 'GET',
+            beforeSend: (xhr) => {
+                const token = localStorage.getItem('jwtToken');
+                if (token) {
+                    xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+                }
+            },
             success: (dinner) => {
                 renderDinnerDetails(dinner);
                 router.showView('dinner-detail-view');
@@ -110,7 +121,7 @@ $(document).ready(function () {
         const container = $('#dinner-details-container');
         container.empty();
         const isHost = currentUser && currentUser.id == dinner.id_oste;
-        const canParticipate = currentUser && !isHost && dinner.numPostiDisponibili > 0 && dinner.stato === 'APERTA';
+        const canParticipate = currentUser && !isHost && dinner.numPostiDisponibili > 0 && dinner.stato === 'APERTA' && !dinner.stato_richiesta_utente;
         const detailsHtml = `
             <div class="card p-4">
                 <h2>${dinner.titolo}</h2>
@@ -120,12 +131,12 @@ $(document).ready(function () {
                 <p><strong>Località:</strong> ${dinner.localita}</p>
                 <p><strong>Posti disponibili:</strong> ${dinner.numPostiDisponibili}</p>
                 ${canParticipate
-                    ? `<button class="btn btn-primary mt-3 participate-btn" data-id="${dinner.id}">Invia richiesta di partecipazione</button>`
-                    : ''}
+                ? `<button class="btn btn-primary mt-3 participate-btn" data-id="${dinner.id}">Invia richiesta di partecipazione</button>`
+                : ''}
             </div>`;
         container.append(detailsHtml);
     }
-    
+
     // NUOVA FUNZIONE per gestire la richiesta di partecipazione
     function handleParticipationRequest(dinnerId) {
         const token = localStorage.getItem('jwtToken');
@@ -134,7 +145,7 @@ $(document).ready(function () {
             router.showView('login-view');
             return;
         }
-        
+
         $.ajax({
             url: `${API_BASE_URL}/richieste`,
             method: 'POST',
@@ -163,6 +174,219 @@ $(document).ready(function () {
         showToast('Logout effettuato con successo!');
     }
 
+    // Gestore per il nuovo link "Le Mie Partecipazioni"
+    $('#my-participations-link').on('click', () => {
+        router.showView('my-participations-view');
+        loadMyParticipations();
+    });
+
+    // Funzione per caricare le cene a cui l'utente ha partecipato
+    function loadMyParticipations() {
+        const token = localStorage.getItem('jwtToken');
+        $.ajax({
+            url: `${API_BASE_URL}/partecipazioni/mie`,
+            method: 'GET',
+            beforeSend: (xhr) => xhr.setRequestHeader('Authorization', 'Bearer ' + token),
+            success: (participations) => {
+                const container = $('#my-participations-container');
+                container.empty();
+                if (participations.length === 0) {
+                    container.html('<p>Non hai ancora partecipato a nessuna cena passata.</p>');
+                    return;
+                }
+                let html = '<ul class="list-group">';
+                participations.forEach(p => {
+                    html += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>${p.titolo}</strong> (organizzata da ${p.nome_oste})
+                            <br><small>${new Date(p.dataOra).toLocaleDateString('it-IT')}</small>
+                        </div>
+                        ${!p.ha_recensito_oste ?
+                            `<button class="btn btn-primary btn-sm review-btn" data-bs-toggle="modal" data-bs-target="#review-modal" data-id-cena="${p.id_cena}" data-id-valutato="${p.id_oste}" data-nome-valutato="${p.nome_oste}">Lascia una recensione</button>` :
+                            '<span class="badge bg-success">Recensito</span>'
+                        }
+                    </li>`;
+                });
+                html += '</ul>';
+                container.html(html);
+            }
+        });
+    }
+
+    // Gestione apertura modale per la recensione
+    $(document).on('click', '.review-btn', function() {
+        const id_cena = $(this).data('id-cena');
+        const id_valutato = $(this).data('id-valutato');
+        const nome_valutato = $(this).data('nome-valutato');
+
+        $('#review-modal-title').text(`Recensione per ${nome_valutato}`);
+        $('#review-id-cena').val(id_cena);
+        $('#review-id-valutato').val(id_valutato);
+    });
+
+    // Gestione invio del form della recensione
+    $('#review-form').on('submit', function(e) {
+        e.preventDefault();
+        const token = localStorage.getItem('jwtToken');
+        const data = {
+            id_cena: $('#review-id-cena').val(),
+            id_valutato: $('#review-id-valutato').val(),
+            voto: parseInt($('#review-voto').val()),
+            commento: $('#review-commento').val()
+        };
+
+        $.ajax({
+            url: `${API_BASE_URL}/recensioni`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            beforeSend: (xhr) => xhr.setRequestHeader('Authorization', 'Bearer ' + token),
+            success: (response) => {
+                showToast(response.message);
+                $('#review-modal').modal('hide');
+                loadMyParticipations();
+                loadMyDinners();
+            },
+            error: (err) => {
+                showToast(err.responseJSON?.message || 'Errore', 'error');
+            }
+        });
+    });
+
+    // Funzione per caricare le cene organizzate dall'utente loggato
+    function loadMyDinners() {
+        const token = localStorage.getItem('jwtToken');
+        $.ajax({
+            url: `${API_BASE_URL}/cene/mie`,
+            method: 'GET',
+            beforeSend: (xhr) => {
+                xhr.setRequestHeader('Authorization', 'Bearer ' + token);
+            },
+            success: (dinners) => {
+                const container = $('#my-dinners-container');
+                container.empty();
+                if (dinners.length === 0) {
+                    container.html('<p>Non hai ancora organizzato nessuna cena.</p>');
+                    return;
+                }
+                dinners.forEach((dinner, index) => {
+                    const canManage = dinner.stato === 'APERTA';
+                    const isAnnullata = dinner.stato === 'ANNULLATA';
+                    const dinnerAccordion = `
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="heading-${index}">
+                            <button ${isAnnullata ? `style="cursor: default;"` : ''} class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-${index}">
+                                ${dinner.titolo} - ${new Date(dinner.dataOra).toLocaleDateString('it-IT')}
+                                <span class="badge bg-${dinner.stato === 'APERTA' ? 'success' : 'secondary'} ms-2">${dinner.stato}</span>
+                                ${canManage ? `<button class="btn btn-danger btn-sm btn-annulla" data-id="${dinner.id}">Annulla Cena</button> ` : ''}
+                            </button>
+                        </h2>
+                        ${!isAnnullata ? `
+                            <div id="collapse-${index}" class="accordion-collapse collapse" data-bs-parent="#my-dinners-container">
+                                <div class="accordion-body" id="requests-for-dinner-${dinner.id}">
+                                    Caricamento...
+                                </div>
+                            </div> ` 
+                        : ''}
+                    </div>`;
+                    container.append(dinnerAccordion);
+                    
+                    const isPastDinner = new Date(dinner.dataOra) < new Date();
+                    if (isPastDinner) {
+                        loadParticipantsForDinner(dinner.id);
+                    } else {
+                        loadRequestsForDinner(dinner.id);
+                    }
+                });
+            }
+        });
+    }
+
+    // Funzione che carica le richieste per una cena e mostra i pulsanti
+    function loadRequestsForDinner(dinnerId) {
+        const token = localStorage.getItem('jwtToken');
+        $.ajax({
+            url: `${API_BASE_URL}/cene/${dinnerId}/richieste`,
+            method: 'GET',
+            beforeSend: (xhr) => xhr.setRequestHeader('Authorization', 'Bearer ' + token),
+            success: (requests) => {
+                const container = $(`#requests-for-dinner-${dinnerId}`);
+                if (requests.length === 0) {
+                    container.html('<p>Nessuna richiesta di partecipazione per questa cena.</p>');
+                    return;
+                }
+                let requestsHtml = '<h6>Richieste Ricevute:</h6><ul class="list-group">';
+                requests.forEach(req => {
+                    requestsHtml += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        ${req.nome} ${req.cognome} - Stato: <strong>${req.stato}</strong>
+                        ${req.stato === 'IN ATTESA' ? 
+                        `<div>
+                            <button class="btn btn-success btn-sm me-2 manage-request-btn" data-id="${req.id}" data-action="ACCETTATA">Accetta</button>
+                            <button class="btn btn-danger btn-sm manage-request-btn" data-id="${req.id}" data-action="RIFIUTATA">Rifiuta</button>
+                        </div>` : ''
+                        }
+                    </li>`;
+                });
+                requestsHtml += '</ul>';
+                container.html(requestsHtml);
+            }
+        });
+    }
+
+    function loadParticipantsForDinner(dinnerId) {
+        const token = localStorage.getItem('jwtToken');
+        $.ajax({
+            url: `${API_BASE_URL}/cene/${dinnerId}/partecipanti`,
+            method: 'GET',
+            beforeSend: (xhr) => xhr.setRequestHeader('Authorization', 'Bearer ' + token),
+            success: (participants) => {
+                const container = $(`#requests-for-dinner-${dinnerId}`);
+                let participantsHtml = '<h6>Partecipanti Confermati:</h6><ul class="list-group">';
+                if (participants.length === 0) {
+                    container.html('<p>Nessun partecipante confermato per questa cena.</p>');
+                    return;
+                }
+                participants.forEach(p => {
+                    participantsHtml += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        ${p.nome} ${p.cognome}
+                        ${!p.oste_ha_recensito ? 
+                            `<button class="btn btn-outline-primary btn-sm review-btn" data-bs-toggle="modal" data-bs-target="#review-modal" data-id-cena="${dinnerId}" data-id-valutato="${p.id_commensale}" data-nome-valutato="${p.nome}">Recensisci</button>` : 
+                            '<span class="badge bg-success">Già Recensito</span>'
+                        }
+                    </li>`;
+                });
+                participantsHtml += '</ul>';
+                container.html(participantsHtml);
+            },
+            error: (err) => {
+                const container = $(`#requests-for-dinner-${dinnerId}`);
+                container.html('<p class="text-danger">Errore nel caricamento dei partecipanti.</p>')
+            }
+        });
+    }
+
+    // Funzione per gestire il click su "Accetta" o "Rifiuta"
+    function handleManageRequest(requestId, action) {
+        const token = localStorage.getItem('jwtToken');
+        $.ajax({
+            url: `${API_BASE_URL}/richieste/${requestId}`,
+            method: 'PUT',
+            contentType: 'application/json',
+            data: JSON.stringify({ stato: action }),
+            beforeSend: (xhr) => xhr.setRequestHeader('Authorization', 'Bearer ' + token),
+            success: (response) => {
+                showToast(response.message);
+                loadMyDinners(); // Ricarica la vista per mostrare lo stato aggiornato
+            },
+            error: (err) => {
+                showToast(err.responseJSON?.message || 'Errore', 'error');
+            }
+        });
+    }
+
     // AGGIUNTA GESTIONE NUOVI LINK E FORM
     $('#home-link').on('click', () => {
         router.showView('dinner-list-view');
@@ -171,7 +395,15 @@ $(document).ready(function () {
     $('#login-link').on('click', () => router.showView('login-view'));
     $('#register-link').on('click', () => router.showView('register-view'));
     $('#create-dinner-link').on('click', () => router.showView('create-dinner-view'));
+    $('#my-dinners-link').on('click', () => {
+        router.showView('my-dinners-view');
+        loadMyDinners();
+    });
     $('#logout-link').on('click', handleLogout);
+    // Clic sui pulsanti "Accetta" o "Rifiuta"
+    $(document).on('click', '.manage-request-btn', function() {
+        handleManageRequest($(this).data('id'), $(this).data('action'));
+    });
 
     // Form di Login (AGGIORNATO per ricaricare le cene dopo il login)
     $('#login-form').on('submit', function (e) {
@@ -271,25 +503,40 @@ $(document).ready(function () {
         });
     });
 
-    // NUOVI EVENT LISTENER
-    // Aggiungi la vista dei dettagli della cena al DOM se non esiste
     if ($('#dinner-detail-view').length === 0) {
         $('main').append('<section id="dinner-detail-view" style="display:none;"><div id="dinner-details-container"></div></section>');
     }
 
-    // Clic su una card per visualizzare i dettagli
-    $(document).on('click', '.dinner-card', function() {
+    $(document).on('click', '.dinner-card', function () {
         const dinnerId = $(this).data('id');
         fetchDinnerDetails(dinnerId);
     });
 
-    // Clic sul bottone "Iscriviti" nella lista o nei dettagli
-    $(document).on('click', '.participate-btn', function() {
+    $(document).on('click', '.participate-btn', function () {
         const dinnerId = $(this).data('id');
         handleParticipationRequest(dinnerId);
     });
 
-    // --- INIZIALIZZAZIONE ---
+    $(document).on('click', '.btn-annulla', function() {
+        const cenaId = $(this).data('id');
+        const token = localStorage.getItem('jwtToken');
+
+        if ($(this).hasClass('btn-annulla')) {
+            if (confirm('Sei sicuro di voler annullare questa cena? L\'azione è irreversibile.')) {
+                $.ajax({
+                    url: `${API_BASE_URL}/cene/annulla/${cenaId}`,
+                    method: 'POST',
+                    beforeSend: (xhr) => xhr.setRequestHeader('Authorization', 'Bearer ' + token),
+                    success: (response) => {
+                        showToast(response.message);
+                        loadMyDinners(); // Ricarica la lista per vedere lo stato aggiornato
+                    },
+                    error: (err) => showToast(err.responseJSON?.message || 'Errore', 'error')
+                });
+            }
+        }
+    });
+
     router.updateNav();
     const token = localStorage.getItem('jwtToken');
     if (!token) {

@@ -32,4 +32,28 @@ class AuthMiddleware {
             exit();
         }
     }
+
+    public static function recuperaUtente() {
+        $headers = getallheaders();
+        $jwt = null;
+        
+        if (isset($headers['Authorization'])) {
+            $matches = [];
+            if (preg_match('/Bearer\s(\S+)/', $headers['Authorization'], $matches)) {
+                $jwt = $matches[1];
+            }
+        }
+
+        if (!$jwt) {
+            return null;
+        }
+
+        try {
+            $secret_key = getenv('JWT_SECRET_KEY');
+            $decoded = JWT::decode($jwt, new Key($secret_key, 'HS256'));
+            return $decoded->data;
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
 }

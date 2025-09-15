@@ -3,6 +3,7 @@ namespace App\Controllers;
 
 use App\Models\Review;
 use App\Models\Participation;
+use App\Models\Dinner;
 use App\Core\AuthMiddleware;
 
 class ReviewController {
@@ -19,20 +20,35 @@ class ReviewController {
                 return;
             }
         }
-
         $data->id_valutatore = $userData->id;
+       //Recupera la cena per ottenere l'ID dell'oste
+       
+        $dinnerModel = new Dinner();
+        $dinner = $dinnerModel->trovaTramiteId($data->id_cena);
 
-        if ($data->id_valutatore == $data->id_valutato) {
-            http_response_code(400);
-            echo json_encode(['message' => 'Non puoi recensire te stesso.']);
+        if (!$dinner) {
+            http_response_code(404);
+            echo json_encode(['message' => 'Cena non trovata.']);
             return;
         }
 
-        $participationModel = new Participation();
-        $evaluatorParticipation = $participationModel->trovaTramiteUtenteECena($data->id_valutatore, $data->id_cena);
-        $evaluatedParticipation = $participationModel->trovaTramiteUtenteECena($data->id_valutato, $data->id_cena);
+        $id_oste = $dinner['id_oste'];
+        $id_valutator = $data->id_valutatore;
+        $id_valutated = $data->id_valutato;
 
-        if (!$evaluatorParticipation || !$evaluatedParticipation) {
+        //Controlla se il valutatore era presente alla cena (come oste o commensale)
+        $participationModel = new Participation();
+        $valutatorIsOste = ($id_valutator == $id_oste);
+        $valutatorHasPartecipated = $participationModel->trovaTramiteUtenteECena($id_valutator, $data->id_cena);
+        $valutatorIsPresent = $valutatorIsOste || $valutatorHasPartecipated;
+
+        //Controlla se il valutato era presente alla cena (come oste o commensale)
+        $valutatoIsOste = ($id_valutated == $id_oste);
+        $valutatedHasPartecipated = $participationModel->trovaTramiteUtenteECena($id_valutated, $data->id_cena);
+        $valutatedIsPresent = $valutatoIsOste || $valutatedHasPartecipated;
+
+        //Se uno dei due non era presente, blocca l'operazione
+        if (!$valutatorIsPresent || !$valutatedIsPresent) {
             http_response_code(403);
             echo json_encode(['message' => 'Per scrivere una recensione, entrambi gli utenti devono aver partecipato alla stessa cena.']);
             return;

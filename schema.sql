@@ -15,7 +15,7 @@ CREATE TABLE `cene` (
   `localita` VARCHAR(255) NOT NULL,
   `numPostiDisponibili` INT NOT NULL,
   `menu` TEXT,
-  `stato` ENUM('APERTA', 'COMPLETA', 'ANNULLATA') DEFAULT 'APERTA',
+  `stato` ENUM('APERTA', 'COMPLETA', 'ANNULLATA', 'CONCLUSA') DEFAULT 'APERTA',
   FOREIGN KEY (`id_oste`) REFERENCES `utenti`(`id`) ON DELETE CASCADE
 );
 
@@ -53,4 +53,14 @@ CREATE TABLE `recensioni` (
   FOREIGN KEY (`id_cena`) REFERENCES `cene`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`id_valutatore`) REFERENCES `utenti`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`id_valutato`) REFERENCES `utenti`(`id`) ON DELETE CASCADE
+);
+
+CREATE TABLE `notifiche` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `id_utente` INT NOT NULL,
+  `messaggio` VARCHAR(255) NOT NULL,
+  `letta` TINYINT(1) NOT NULL DEFAULT 0,
+  `link` VARCHAR(255) NULL,
+  `data_creazione` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`id_utente`) REFERENCES `utenti`(`id`) ON DELETE CASCADE
 );

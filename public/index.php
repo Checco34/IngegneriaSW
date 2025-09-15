@@ -3,6 +3,7 @@ header("Content-Type: application/json");
 header("Access-Control-Allow-Origin: *");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization");
+date_default_timezone_set('Europe/Rome');
 
 if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
     exit(0);
@@ -30,11 +31,15 @@ $router->post('/api/cene', [DinnerController::class, 'crea']);
 $router->get('/api/cene', [DinnerController::class, 'leggiTutte']);
 $router->get('/api/cene/mie', [DinnerController::class, 'leggiCeneOrganizzate']);
 $router->get('/api/cene/{id}', [DinnerController::class, 'leggiSingola']);
+$router->post('/api/cene/annulla/{id}', [DinnerController::class, 'annulla']);
 
 // --- Rotte Richieste di Partecipazione ---
 $router->post('/api/richieste', [ParticipationController::class, 'richiediPartecipazione']);
 $router->get('/api/cene/{id}/richieste', [ParticipationController::class, 'leggiRichiestePerCena']);
 $router->put('/api/richieste/{id}', [ParticipationController::class, 'gestisciRichiesta']);
+$router->get('/api/partecipazioni/mie', [ParticipationController::class, 'leggiPartecipazioniUtente']);
+$router->get('/api/cene/{id}/partecipanti', [ParticipationController::class, 'leggiPartecipantiCena']);
+$router->put('/api/partecipazioni/{id}/annulla', [ParticipationController::class, 'annullaPartecipazione']);
 
 // --- Rotte Partecipazioni ---
 $router->put('/api/partecipazioni/{id}/annulla', [ParticipationController::class, 'annullaPartecipazione']);
