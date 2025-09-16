@@ -48,7 +48,7 @@ $(document).ready(function () {
         $.ajax({
             url: `${API_BASE_URL}/cene`,
             method: 'GET',
-            beforeSend: (xhr) => { // <-- AGGIUNGI QUESTO BLOCCO
+            beforeSend: (xhr) => { 
                 const token = localStorage.getItem('jwtToken');
                 if (token) {
                     xhr.setRequestHeader('Authorization', 'Bearer ' + token);
@@ -94,7 +94,7 @@ $(document).ready(function () {
         });
     }
 
-    // NUOVA FUNZIONE per caricare e visualizzare i dettagli di una singola cena
+    //Funzione per caricare e visualizzare i dettagli di una singola cena
     function fetchDinnerDetails(dinnerId) {
         $.ajax({
             url: `${API_BASE_URL}/cene/${dinnerId}`,
@@ -116,7 +116,7 @@ $(document).ready(function () {
         });
     }
 
-    // NUOVA FUNZIONE per renderizzare i dettagli della cena
+    //Funzione per renderizzare i dettagli della cena
     function renderDinnerDetails(dinner) {
         const container = $('#dinner-details-container');
         container.empty();
@@ -137,7 +137,7 @@ $(document).ready(function () {
         container.append(detailsHtml);
     }
 
-    // NUOVA FUNZIONE per gestire la richiesta di partecipazione
+    //Funzione per gestire la richiesta di partecipazione
     function handleParticipationRequest(dinnerId) {
         const token = localStorage.getItem('jwtToken');
         if (!token) {
@@ -517,7 +517,6 @@ $(document).ready(function () {
         });
     });
 
-    // NUOVA GESTIONE FORM CREA CENA
     $('#create-dinner-form').on('submit', function (e) {
         e.preventDefault();
         const data = {
@@ -543,7 +542,7 @@ $(document).ready(function () {
         }
 
         $.ajax({
-            url: `${API_BASE_URL}/cene`, // Adjusted URL to match backend router
+            url: `${API_BASE_URL}/cene`,
             method: 'POST',
             contentType: 'application/json',
             data: JSON.stringify(data),
@@ -552,9 +551,9 @@ $(document).ready(function () {
             },
             success: (response) => {
                 showToast('Cena creata con successo!');
-                $('#create-dinner-form')[0].reset(); // Reset form
+                $('#create-dinner-form')[0].reset();
                 router.showView('dinner-list-view');
-                loadDinners(); // Ricarica la lista per mostrare la nuova cena
+                loadDinners();
             },
             error: (err) => {
                 $('#create-dinner-error').text(err.responseJSON?.message || 'Errore nella creazione della cena.');
