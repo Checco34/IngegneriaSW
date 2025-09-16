@@ -27,7 +27,10 @@ class Participation
 
     public function trovaTramiteId($id_partecipazione)
     {
-        $query = "SELECT * FROM " . $this->table . " WHERE id = :id_partecipazione LIMIT 1";
+       $query = "SELECT p.*, c.stato AS stato_cena 
+              FROM " . $this->table . " p 
+              JOIN cene c ON p.id_cena = c.id 
+              WHERE p.id = :id_partecipazione LIMIT 1";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':id_partecipazione', $id_partecipazione);
         $stmt->execute();
@@ -52,7 +55,7 @@ class Participation
         return $stmt->execute();
     }
 
-    public function trovaTramiteUtente($id_commensale)
+    public function trovaPartecipazioniPassateTramiteUtente($id_commensale)
     {
         $query = "SELECT 
                 p.*, 
@@ -65,6 +68,26 @@ class Participation
               WHERE p.id_commensale = :id_commensale AND p.statoPartecipante = 'CONFERMATO' AND c.dataOra < :current_time
               ORDER BY c.dataOra DESC";
 
+        $current_time = (new \DateTime())->format('Y-m-d H:i:s');
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':id_commensale', $id_commensale);
+        $stmt->bindParam(':current_time', $current_time);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function trovaPartecipazioniFutureTramiteUtente($id_commensale)
+    {
+        $query = "SELECT 
+                p.id, p.id_cena,
+                c.titolo, c.dataOra,
+                u_oste.nome AS nome_oste
+              FROM partecipazioni p
+              JOIN cene c ON p.id_cena = c.id
+              JOIN utenti u_oste ON c.id_oste = u_oste.id
+              WHERE p.id_commensale = :id_commensale AND p.statoPartecipante = 'CONFERMATO' AND c.dataOra >= :current_time
+              ORDER BY c.dataOra ASC";
+        
         $current_time = (new \DateTime())->format('Y-m-d H:i:s');
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':id_commensale', $id_commensale);
@@ -94,6 +117,15 @@ class Participation
             ':id_oste' => $id_oste,
             ':current_time' => $current_time
         ]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function trovaPartecipantiConfermatiPerCena($id_cena)
+    {
+        $query = "SELECT id_commensale FROM " . $this->table . " 
+                  WHERE id_cena = :id_cena AND statoPartecipante = 'CONFERMATO'";
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute([':id_cena' => $id_cena]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }

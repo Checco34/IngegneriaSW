@@ -4,6 +4,7 @@ namespace App\Controllers;
 use App\Models\Review;
 use App\Models\Participation;
 use App\Models\Dinner;
+use App\Models\Notification;
 use App\Core\AuthMiddleware;
 
 class ReviewController {
@@ -19,6 +20,12 @@ class ReviewController {
                 echo json_encode(['message' => "Dato mancante: $field"]);
                 return;
             }
+        }
+
+        if (strlen($data->commento) > 255) {
+            http_response_code(400);
+            echo json_encode(['message' => 'Il commento non può superare i 255 caratteri.']);
+            return;
         }
         $data->id_valutatore = $userData->id;
        //Recupera la cena per ottenere l'ID dell'oste
@@ -55,7 +62,18 @@ class ReviewController {
         }
         
         $reviewModel = new Review();
-        if ($reviewModel->crea($data)) {
+        $newReviewId = $reviewModel->crea($data);
+
+        if ($newReviewId) {
+
+            $testoRecensione = $data->commento;
+            if (strlen($testoRecensione) > 30) {
+                $testoRecensione = substr($testoRecensione, 0, 30) . '...';
+            }
+
+            $messaggio = "Recensione da {$userData->nome} per '{$dinner['titolo']}': \"{$testoRecensione}\"";
+            (new Notification())->crea($data->id_valutato, $messaggio, $newReviewId);
+            
             http_response_code(201);
             echo json_encode(['message' => 'Recensione creata con successo.']);
         } else {

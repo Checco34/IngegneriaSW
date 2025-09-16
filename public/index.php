@@ -16,6 +16,7 @@ use App\Controllers\UserController;
 use App\Controllers\DinnerController;
 use App\Controllers\ParticipationController;
 use App\Controllers\ReviewController;
+use App\Controllers\NotificationController;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 
@@ -37,16 +38,20 @@ $router->post('/api/cene/annulla/{id}', [DinnerController::class, 'annulla']);
 $router->post('/api/richieste', [ParticipationController::class, 'richiediPartecipazione']);
 $router->get('/api/cene/{id}/richieste', [ParticipationController::class, 'leggiRichiestePerCena']);
 $router->put('/api/richieste/{id}', [ParticipationController::class, 'gestisciRichiesta']);
-$router->get('/api/partecipazioni/mie', [ParticipationController::class, 'leggiPartecipazioniUtente']);
-$router->get('/api/cene/{id}/partecipanti', [ParticipationController::class, 'leggiPartecipantiCena']);
-$router->put('/api/partecipazioni/{id}/annulla', [ParticipationController::class, 'annullaPartecipazione']);
+$router->get('/api/partecipazioni/mie/passate', [ParticipationController::class, 'leggiPartecipazioniPassateUtente']);
+$router->get('/api/partecipazioni/mie/future', [ParticipationController::class, 'leggiPartecipazioniFutureUtente']);
 
-// --- Rotte Partecipazioni ---
-$router->put('/api/partecipazioni/{id}/annulla', [ParticipationController::class, 'annullaPartecipazione']);
+$router->get('/api/cene/{id}/partecipanti', [ParticipationController::class, 'leggiPartecipantiCena']);
+$router->post('/api/partecipazioni/annulla/{id}', [ParticipationController::class, 'annullaPartecipazione']);
 
 // --- Rotte Recensioni ---
 $router->post('/api/recensioni', [ReviewController::class, 'crea']);
 $router->get('/api/utenti/{id}/recensioni', [ReviewController::class, 'leggiRecensioniPerUtente']); 
+
+// --- Rotte Notifiche ---
+$router->get('/api/notifiche', [NotificationController::class, 'leggiPerUtente']);
+$router->post('/api/notifiche/leggi', [NotificationController::class, 'marcaLette']);
+$router->get('/api/notifiche/{id}', [NotificationController::class, 'leggiSingola']);
 
 $url = $_SERVER['REQUEST_URI'];
 $router->instrada($url);

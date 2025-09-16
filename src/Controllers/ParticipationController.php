@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\ParticipationRequest;
 use App\Models\Participation;
 use App\Models\Dinner;
+use App\Models\Notification;
 use App\Core\AuthMiddleware;
 
 class ParticipationController
@@ -33,6 +34,7 @@ class ParticipationController
 
         $requestModel = new ParticipationRequest();
         if ($requestModel->crea($id_cena, $userData->id)) {
+            (new Notification())->crea($dinner['id_oste'], "Hai una nuova richiesta per la cena '{$dinner['titolo']}'.", null);
             http_response_code(201);
             echo json_encode(['message' => 'Richiesta di partecipazione inviata.']);
         } else {
@@ -99,6 +101,10 @@ class ParticipationController
             $participationModel = new Participation();
             if ($participationModel->creaDaRichiesta($request)) {
                 $dinnerModel->aggiornaPosti($dinner['id'], -1);
+                
+                if ($dinner['numPostiDisponibili'] == 1) {
+                    $dinnerModel->aggiornaStato($dinner['id'], 'COMPLETA');
+                }
             } else {
                 http_response_code(500);
                 echo json_encode(['message' => 'Errore nella creazione della partecipazione.']);
@@ -107,6 +113,8 @@ class ParticipationController
         }
 
         if ($requestModel->aggiornaStato($id, $stato)) {
+            $esito = ($stato === 'ACCETTATA') ? 'accettata' : 'rifiutata';
+            (new Notification())->crea($request['id_commensale'], "La tua richiesta per '{$dinner['titolo']}' è stata {$esito}.", null);
             http_response_code(200);
             echo json_encode(['message' => 'Stato della richiesta aggiornato con successo.']);
         } else {
@@ -133,9 +141,25 @@ class ParticipationController
             return;
         }
 
+        if (in_array($participation['stato_cena'], ['CONCLUSA', 'ANNULLATA'])) {
+            http_response_code(409);
+            echo json_encode(['message' => 'Non puoi annullare la partecipazione ad una cena già conclusa o annullata.']);
+            return;
+        }
+
         if ($participationModel->annulla($id)) {
             $dinnerModel = new Dinner();
+            $dinner = $dinnerModel->trovaTramiteId($participation['id_cena']);
+            
             $dinnerModel->aggiornaPosti($participation['id_cena'], 1);
+
+            if ($dinner['stato'] === 'COMPLETA') {
+                $dinnerModel->aggiornaStato($participation['id_cena'], 'APERTA');
+            }
+            
+            $messaggio = "{$userData->nome} ha annullato la sua partecipazione per '{$dinner['titolo']}'.";
+            (new Notification())->crea($dinner['id_oste'], $messaggio, null);
+
             http_response_code(200);
             echo json_encode(['message' => 'Partecipazione annullata con successo.']);
         } else {
@@ -144,11 +168,20 @@ class ParticipationController
         }
     }
 
-    public function leggiPartecipazioniUtente()
+    public function leggiPartecipazioniPassateUtente()
     {
         $userData = AuthMiddleware::proteggi();
         $participationModel = new Participation();
-        $participations = $participationModel->trovaTramiteUtente($userData->id);
+        $participations = $participationModel->trovaPartecipazioniPassateTramiteUtente($userData->id);
+        http_response_code(200);
+        echo json_encode($participations);
+    }
+
+    public function leggiPartecipazioniFutureUtente()
+    {
+        $userData = AuthMiddleware::proteggi();
+        $participationModel = new Participation();
+        $participations = $participationModel->trovaPartecipazioniFutureTramiteUtente($userData->id);
         http_response_code(200);
         echo json_encode($participations);
     }

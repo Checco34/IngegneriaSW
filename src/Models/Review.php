@@ -24,7 +24,10 @@ class Review {
         $stmt->bindParam(':voto', $data->voto);
         $stmt->bindParam(':commento', $data->commento);
         
-        return $stmt->execute();
+        if ($stmt->execute()) {
+            return $this->conn->lastInsertId();
+        }
+        return false;
     }
 
     public function trovaTramiteUtente($id_valutato) {

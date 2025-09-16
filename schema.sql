@@ -48,7 +48,7 @@ CREATE TABLE `recensioni` (
   `id_valutatore` INT NOT NULL,
   `id_valutato` INT NOT NULL,
   `voto` INT NOT NULL CHECK (`voto` >= 1 AND `voto` <= 5),
-  `commento` TEXT,
+  `commento` VARCHAR(255),
   `data` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`id_cena`) REFERENCES `cene`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`id_valutatore`) REFERENCES `utenti`(`id`) ON DELETE CASCADE,
@@ -58,9 +58,11 @@ CREATE TABLE `recensioni` (
 CREATE TABLE `notifiche` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `id_utente` INT NOT NULL,
+  `id_recensione` INT NULL,
   `messaggio` VARCHAR(255) NOT NULL,
   `letta` TINYINT(1) NOT NULL DEFAULT 0,
   `link` VARCHAR(255) NULL,
   `data_creazione` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (`id_utente`) REFERENCES `utenti`(`id`) ON DELETE CASCADE
+  FOREIGN KEY (`id_utente`) REFERENCES `utenti`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`id_recensione`) REFERENCES `recensioni`(`id`) ON DELETE SET NULL
 );

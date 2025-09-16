@@ -2,6 +2,8 @@
 namespace App\Controllers;
 
 use App\Models\Dinner;
+use App\Models\Participation;
+use App\Models\Notification;
 use App\Core\AuthMiddleware;
 
 class DinnerController
@@ -98,7 +100,17 @@ class DinnerController
         }
 
         if ($dinnerModel->annulla($id)) {
-            //TODO: logica notifica
+            
+            $participationModel = new Participation();
+            $notificationModel = new Notification();
+
+            $participants = $participationModel->trovaPartecipantiConfermatiPerCena($id);
+            $message = "La cena '{$dinner['titolo']}' a cui partecipavi è stata annullata dall'oste.";
+
+            foreach ($participants as $participant) {
+                $notificationModel->crea($participant['id_commensale'], $message, null);
+            }
+
             http_response_code(200);
             echo json_encode(['message' => 'Cena annullata con successo.']);
         } else {

@@ -35,3 +35,28 @@
 .toast-notification.error {
     background-color: red; /* Rosso */
 }
+
+.btn-annulla-cena {
+    display: inline-block;
+    padding: 3px 10px;
+    background-color: #dd3445;
+    color: white;
+    border-radius: 5px;
+    font-family: sans-serif;
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+    margin-left: 85%;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.btn-annulla-cena:hover {
+  background-color: #ba2c3b; /* Un blu più scuro */
+}
+
+
+.word-break-custom {
+  overflow-wrap: break-word;
+  word-wrap: break-word; /* Per compatibilità con browser più vecchi */
+}

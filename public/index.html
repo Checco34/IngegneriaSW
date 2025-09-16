@@ -26,6 +26,12 @@
                 <a class="nav-link" href="#" id="my-participations-link" style="display: none;">Le Mie Partecipazioni</a>
                 <a class="nav-link" href="#" id="my-dinners-link" style="display: none;">Le Mie Cene</a>
                 <a class="nav-link" href="#" id="create-dinner-link" style="display: none;">Crea Cena</a>
+                <li class="nav-item dropdown" id="notifications-li" style="display:none;">
+                    <a class="nav-link" href="#" id="notifications-link" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        Notifiche <span class="badge rounded-pill bg-danger ms-1" id="notifications-count" style="display:none;"></span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" id="notifications-container" aria-labelledby="notifications-link"></ul>
+                </li>
                 <a class="nav-link" href="#" id="logout-link" style="display: none;">Logout</a>
             </div>
         </div>
@@ -84,10 +90,11 @@
             </form>
         </section>
 
-        <section id="my-participations-view" style="display: none;">
-            <h2>Cene a cui hai partecipato</h2>
-            <div id="my-participations-container"></div>
-         </section>
+        <section id="my-participations-view" style="display:none;">
+            <h2>Le Mie Partecipazioni</h2>
+            <div id="my-future-participations-container" class="mb-4"></div>
+            <div id="my-past-participations-container"></div>
+        </section>
 
         <section id="my-dinners-view" style="display: none;">
             <h2>Le Mie Cene Organizzate</h2>
@@ -96,35 +103,51 @@
     </main>
 
     <div class="modal fade" id="review-modal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="review-modal-title">Lascia una recensione</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="review-modal-title">Lascia una recensione</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="review-form">
+                        <input type="hidden" id="review-id-cena">
+                        <input type="hidden" id="review-id-valutato">
+                        <div class="mb-3">
+                            <label for="review-voto" class="form-label">Voto (da 1 a 5)</label>
+                            <select id="review-voto" class="form-select" required>
+                                <option value="5">5 (Eccellente)</option>
+                                <option value="4">4 (Molto Buono)</option>
+                                <option value="3">3 (Buono)</option>
+                                <option value="2">2 (Sufficiente)</option>
+                                <option value="1">1 (Insufficiente)</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="review-commento" class="form-label">Commento</label>
+                            <textarea id="review-commento" class="form-control" rows="3" maxlength="255" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Invia Recensione</button>
+                    </form>
+                </div>
             </div>
-            <div class="modal-body">
-                <form id="review-form">
-                    <input type="hidden" id="review-id-cena">
-                    <input type="hidden" id="review-id-valutato">
-                    <div class="mb-3">
-                        <label for="review-voto" class="form-label">Voto (da 1 a 5)</label>
-                        <select id="review-voto" class="form-select" required>
-                            <option value="5">5 (Eccellente)</option>
-                            <option value="4">4 (Molto Buono)</option>
-                            <option value="3">3 (Buono)</option>
-                            <option value="2">2 (Sufficiente)</option>
-                            <option value="1">1 (Insufficiente)</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="review-commento" class="form-label">Commento</label>
-                        <textarea id="review-commento" class="form-control" rows="3" required></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Invia Recensione</button>
-                </form>
+        </div>
+    </div> 
+    <div class="modal fade" id="notification-modal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="notification-modal-title">Dettagli Notifica</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="notification-modal-body"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Chiudi</button>
+                </div>
             </div>
         </div>
     </div>
+
 </body>
 
 </html>

@@ -21,12 +21,12 @@ $(document).ready(function () {
 
                 // Se c'è un token, mostra i link per gli utenti autenticati e nascondi quelli per i non autenticati
                 $('#login-link, #register-link').hide();
-                $('#logout-link, #home-link, #create-dinner-link, #my-dinners-link, #my-participations-link').show();
+                $('#logout-link, #home-link, #create-dinner-link, #my-dinners-link, #my-participations-link, #notifications-li').show();
             } else {
                 // Se non c'è un token, mostra i link per i non autenticati e nascondi quelli per gli autenticati
                 currentUser = null;
                 $('#login-link, #register-link').show();
-                $('#logout-link, #create-dinner-link, #home-link, #my-dinners-link, #my-participations-link').hide();
+                $('#logout-link, #create-dinner-link, #home-link, #my-dinners-link, #my-participations-link, #notifications-li').hide();
             }
         }
     };
@@ -174,27 +174,48 @@ $(document).ready(function () {
         showToast('Logout effettuato con successo!');
     }
 
-    // Gestore per il nuovo link "Le Mie Partecipazioni"
-    $('#my-participations-link').on('click', () => {
-        router.showView('my-participations-view');
-        loadMyParticipations();
-    });
-
-    // Funzione per caricare le cene a cui l'utente ha partecipato
     function loadMyParticipations() {
-        const token = localStorage.getItem('jwtToken');
+        const token = localStorage.getItem('jwtToken'); 
+        const futureContainer = $('#my-future-participations-container');
+        const pastContainer = $('#my-past-participations-container');
+
         $.ajax({
-            url: `${API_BASE_URL}/partecipazioni/mie`,
+            url: `${API_BASE_URL}/partecipazioni/mie/future`,
             method: 'GET',
             beforeSend: (xhr) => xhr.setRequestHeader('Authorization', 'Bearer ' + token),
             success: (participations) => {
-                const container = $('#my-participations-container');
-                container.empty();
+                futureContainer.empty();
                 if (participations.length === 0) {
-                    container.html('<p>Non hai ancora partecipato a nessuna cena passata.</p>');
+                    futureContainer.html('<h5>Cene in Programma</h5><p>Nessuna partecipazione futura.</p>');
                     return;
                 }
-                let html = '<ul class="list-group">';
+                let html = '<h5>Cene in Programma</h5><ul class="list-group">';
+                participations.forEach(p => {
+                    html += `
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>${p.titolo}</strong> (organizzata da ${p.nome_oste})
+                            <br><small>${new Date(p.dataOra).toLocaleString('it-IT')}</small>
+                        </div>
+                        <button class="btn btn-warning btn-sm btn-annulla-partecipazione" data-id="${p.id}">Annulla partecipazione</button>
+                    </li>`;
+                });
+                html += '</ul>';
+                futureContainer.html(html);
+            }
+        });
+
+        $.ajax({
+            url: `${API_BASE_URL}/partecipazioni/mie/passate`,
+            method: 'GET',
+            beforeSend: (xhr) => xhr.setRequestHeader('Authorization', 'Bearer ' + token),
+            success: (participations) => {
+                pastContainer.empty();
+                if (participations.length === 0) {
+                    pastContainer.html('<h5>Cene Passate</h5><p>Non hai ancora partecipato a nessuna cena.</p>');
+                    return;
+                }
+                let html = '<h5>Cene Passate</h5><ul class="list-group">';
                 participations.forEach(p => {
                     html += `
                     <li class="list-group-item d-flex justify-content-between align-items-center">
@@ -209,7 +230,45 @@ $(document).ready(function () {
                     </li>`;
                 });
                 html += '</ul>';
-                container.html(html);
+                pastContainer.html(html);
+            }
+        });
+    }
+
+    function loadNotifications() {
+        const token = localStorage.getItem('jwtToken');
+        if (!token) return;
+
+        $.ajax({
+            url: `${API_BASE_URL}/notifiche`,
+            method: 'GET',
+            beforeSend: (xhr) => xhr.setRequestHeader('Authorization', 'Bearer ' + token),
+            success: (response) => {
+                const container = $('#notifications-container');
+                const countBadge = $('#notifications-count');
+                container.empty();
+
+                if (response.notifications.length === 0) {
+                    container.html('<li><span class="dropdown-item-text">Nessuna notifica</span></li>');
+                } else {
+                    response.notifications.forEach(n => {
+                        const isUnread = !n.letta ? 'fw-bold' : '';
+                        const notificationHtml = `
+                            <li>
+                                <a href="#" class="dropdown-item notification-item ${isUnread}" data-id="${n.id}">
+                                    ${n.messaggio}
+                                    <br><small class="text-muted">${new Date(n.data_creazione).toLocaleString('it-IT')}</small>
+                                </a>
+                            </li>`;
+                        container.append(notificationHtml);
+                    });
+                }
+
+                if (response.unreadCount > 0) {
+                    countBadge.text(response.unreadCount).show();
+                } else {
+                    countBadge.hide();
+                }
             }
         });
     }
@@ -279,11 +338,11 @@ $(document).ready(function () {
                             <button ${isAnnullata ? `style="cursor: default;"` : ''} class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-${index}">
                                 ${dinner.titolo} - ${new Date(dinner.dataOra).toLocaleDateString('it-IT')}
                                 <span class="badge bg-${dinner.stato === 'APERTA' ? 'success' : 'secondary'} ms-2">${dinner.stato}</span>
-                                ${canManage ? `<button class="btn btn-danger btn-sm btn-annulla" data-id="${dinner.id}">Annulla Cena</button> ` : ''}
                             </button>
                         </h2>
                         ${!isAnnullata ? `
                             <div id="collapse-${index}" class="accordion-collapse collapse" data-bs-parent="#my-dinners-container">
+                                ${canManage ? `<button class="btn btn-danger btn-sm btn-annulla-cena" data-id="${dinner.id}">Annulla Cena</button> ` : ''}
                                 <div class="accordion-body" id="requests-for-dinner-${dinner.id}">
                                     Caricamento...
                                 </div>
@@ -422,6 +481,7 @@ $(document).ready(function () {
                 router.updateNav();
                 router.showView('dinner-list-view');
                 loadDinners(); // Ricarica le cene per mostrare eventuali nuove opzioni
+                loadNotifications();
                 showToast('Login avvenuto con successo!');
             },
             error: (err) => {
@@ -517,11 +577,11 @@ $(document).ready(function () {
         handleParticipationRequest(dinnerId);
     });
 
-    $(document).on('click', '.btn-annulla', function() {
+    $(document).on('click', '.btn-annulla-cena', function() {
         const cenaId = $(this).data('id');
         const token = localStorage.getItem('jwtToken');
 
-        if ($(this).hasClass('btn-annulla')) {
+        if ($(this).hasClass('btn-annulla-cena')) {
             if (confirm('Sei sicuro di voler annullare questa cena? L\'azione è irreversibile.')) {
                 $.ajax({
                     url: `${API_BASE_URL}/cene/annulla/${cenaId}`,
@@ -537,6 +597,103 @@ $(document).ready(function () {
         }
     });
 
+    $('#notifications-container').on('click', '.notification-item', function(e) {
+        e.preventDefault();
+        const notificationId = $(this).data('id');
+
+        if (!notificationId) {
+            console.error("ERRORE: ID della notifica non trovato. Controlla l'attributo data-id nell'HTML.");
+            return;
+        }
+
+        const token = localStorage.getItem('jwtToken');
+
+        $.ajax({
+            url: `${API_BASE_URL}/notifiche/${notificationId}`,
+            method: 'GET',
+            beforeSend: (xhr) => xhr.setRequestHeader('Authorization', 'Bearer ' + token),
+            success: (details) => {
+
+                const modalElement = $('#notification-modal');
+                const modalTitle = $('#notification-modal-title');
+                const modalBody = $('#notification-modal-body');
+                
+                
+                if (details.id_recensione) {
+                    modalTitle.text(`Recensione da ${details.nome_valutatore}`);
+                    const vote = details.voto ? parseInt(details.voto) : 0;
+                    modalBody.html(`
+                        <p><strong>Cena:</strong> ${details.titolo_cena}</p>
+                        <p><strong>Voto:</strong> ${'⭐'.repeat(vote)}</p>
+                        <hr>
+                        <p><strong>Commento:</strong></p>
+                        <p class="fst-italic word-break-custom">"${details.commento}"</p>
+                    `);
+                } else {
+                    modalTitle.text('Notifica');
+                    modalBody.text(details.messaggio);
+                }
+                
+                try {
+                    modalElement.modal('show');
+                } catch (error) {
+                    console.error("ERRORE CRITICO: Il comando .modal('show') ha fallito. Questo significa che la funzione modal di Bootstrap non è disponibile o non funziona correttamente.", error);
+                }
+            },
+            error: (err) => {
+                console.error("ERRORE: La chiamata AJAX per ottenere i dettagli della notifica è fallita.", err);
+                showToast('Impossibile caricare i dettagli della notifica.', 'error');
+            }
+        });
+    });
+
+    $('#notifications-link').on('click', function() {
+        const token = localStorage.getItem('jwtToken');
+        const countBadge = $('#notifications-count');
+        
+        // Se il contatore è visibile, significa che ci sono notifiche non lette da segnare
+        if (countBadge.is(':visible')) {
+            $.ajax({
+                url: `${API_BASE_URL}/notifiche/leggi`,
+                method: 'POST',
+                beforeSend: (xhr) => xhr.setRequestHeader('Authorization', 'Bearer ' + token),
+                success: () => {
+                    // Nascondiamo subito il contatore per un feedback immediato
+                    countBadge.hide();
+                    // Dopo un breve ritardo, ricarichiamo le notifiche per togliere il grassetto
+                    setTimeout(() => {
+                        loadNotifications(); 
+                    }, 2000);
+                }
+            });
+        }
+    });
+
+    $('#my-participations-link').on('click', () => {
+        router.showView('my-participations-view');
+        loadMyParticipations();
+    });
+
+    $(document).on('click', '.btn-annulla-partecipazione', function() {
+        const participationId = $(this).data('id');
+        const token = localStorage.getItem('jwtToken');
+
+        if (confirm('Sei sicuro di voler annullare la tua partecipazione a questa cena?')) {
+            $.ajax({
+                url: `${API_BASE_URL}/partecipazioni/annulla/${participationId}`,
+                method: 'POST',
+                beforeSend: (xhr) => xhr.setRequestHeader('Authorization', 'Bearer ' + token),
+                success: (response) => {
+                    showToast(response.message);
+                    loadMyParticipations();
+                },
+                error: (err) => {
+                    showToast(err.responseJSON?.message || 'Errore durante l\'annullamento.', 'error');
+                }
+            });
+        }
+    });
+
     router.updateNav();
     const token = localStorage.getItem('jwtToken');
     if (!token) {
@@ -544,5 +701,6 @@ $(document).ready(function () {
     } else {
         router.showView('dinner-list-view');
         loadDinners();
+        loadNotifications();
     }
 });

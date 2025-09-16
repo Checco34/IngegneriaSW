@@ -41,12 +41,15 @@ class Dinner
                   FROM " . $this->table . " c 
                   JOIN utenti u ON c.id_oste = u.id
                   LEFT JOIN richieste_partecipazione rp ON c.id = rp.id_cena AND rp.id_commensale = :id_utente_corrente
-                  WHERE c.stato = 'APERTA' 
+                  WHERE c.stato = 'APERTA' AND c.dataOra > :current_time
                   ORDER BY c.dataOra ASC";
 
+        $current_time = (new \DateTime())->format('Y-m-d H:i:s');
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':id_utente_corrente', $id_utente_corrente);
-        $stmt->execute();
+        $stmt->bindParam( ':current_time', $current_time);
+        $stmt->execute();           
+
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
